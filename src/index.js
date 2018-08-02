@@ -37,7 +37,7 @@ function loader(...args) {
   const contextDependencies = this.getContextDependencies();
 
   // Should the file get cached?
-  let cache = true;
+  const cache = true;
 
   const toDepDetails = (dep, mapCallback) => {
     fs.stat(dep, (err, stats) => {
@@ -46,18 +46,18 @@ function loader(...args) {
         return;
       }
 
-      const mtime = stats.mtime.getTime();
+      // const mtime = stats.mtime.getTime();
 
-      if (mtime / 1000 >= Math.floor(data.startTime / 1000)) {
-        // Don't trust mtime.
-        // File was changed while compiling
-        // or it could be an inaccurate filesystem.
-        cache = false;
-      }
+      // if (mtime / 1000 >= Math.floor(data.startTime / 1000)) {
+      //   // Don't trust mtime.
+      //   // File was changed while compiling
+      //   // or it could be an inaccurate filesystem.
+      //   cache = false;
+      // }
 
       mapCallback(null, {
         path: dep,
-        mtime,
+        size: stats.size,
       });
     });
   };
@@ -115,7 +115,7 @@ function pitch(remainingRequest, prevRequest, dataInput) {
           eachCallback(statErr);
           return;
         }
-        if (stats.mtime.getTime() !== dep.mtime) {
+        if (stats.size !== dep.size) {
           eachCallback(true);
           return;
         }
