@@ -15,6 +15,9 @@
     },
     "write": {
       "instanceof": "Function"
+    },
+    "debug": {
+      "type": "boolean"
     }
   },
   "additionalProperties": false

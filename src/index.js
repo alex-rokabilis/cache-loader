@@ -22,6 +22,7 @@ const defaults = {
   cacheKey,
   read,
   write,
+  debug: false,
 };
 
 function loader(...args) {
@@ -40,26 +41,38 @@ function loader(...args) {
   const cache = true;
 
   const toDepDetails = (dep, mapCallback) => {
-    fs.stat(dep, (err, stats) => {
-      if (err) {
-        mapCallback(err);
+    fs.readFile(dep, (readErr, contents) => {
+      if (readErr) {
+        mapCallback(readErr);
         return;
       }
-
-      // const mtime = stats.mtime.getTime();
-
-      // if (mtime / 1000 >= Math.floor(data.startTime / 1000)) {
-      //   // Don't trust mtime.
-      //   // File was changed while compiling
-      //   // or it could be an inaccurate filesystem.
-      //   cache = false;
-      // }
-
+      const md5checksum = crypto.createHash('md5').update(contents).digest('hex');
       mapCallback(null, {
         path: dep,
-        size: stats.size,
+        md5checksum,
       });
     });
+
+    // fs.stat(dep, (err, stats) => {
+    //   if (err) {
+    //     mapCallback(err);
+    //     return;
+    //   }
+
+    //   // const mtime = stats.mtime.getTime();
+
+    //   // if (mtime / 1000 >= Math.floor(data.startTime / 1000)) {
+    //   //   // Don't trust mtime.
+    //   //   // File was changed while compiling
+    //   //   // or it could be an inaccurate filesystem.
+    //   //   cache = false;
+    //   // }
+
+    //   mapCallback(null, {
+    //     path: dep,
+    //     size: stats.size,
+    //   });
+    // });
   };
 
   async.parallel([
@@ -110,15 +123,22 @@ function pitch(remainingRequest, prevRequest, dataInput) {
       return;
     }
     async.each(cacheData.dependencies.concat(cacheData.contextDependencies), (dep, eachCallback) => {
-      fs.stat(dep.path, (statErr, stats) => {
-        if (statErr) {
-          eachCallback(statErr);
+      fs.readFile(dep.path, (readErr, contents) => {
+        if (readErr) {
+          eachCallback(readErr);
           return;
         }
-        if (stats.size !== dep.size) {
+
+        const md5checksum = crypto.createHash('md5').update(contents).digest('hex');
+
+        if (md5checksum !== dep.md5checksum) {
+          // eslint-disable-next-line
+          options.debug && console.log(`${dep.path} --- CACHE MISS`);
           eachCallback(true);
           return;
         }
+        // eslint-disable-next-line
+        options.debug && console.log(`${dep.path} --- CACHE HIT`);
         eachCallback();
       });
     }, (err) => {
