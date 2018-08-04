@@ -25,23 +25,13 @@ const defaults = {
   loglevel: 'none',
 };
 
-const checksumRegistry = new Map();
-
-function checksumFile(filePath) {
+function checksumFile(hashName, path) {
   return new Promise((resolve, reject) => {
-    if (checksumRegistry.has(filePath)) {
-      resolve(checksumRegistry.get(filePath));
-      return;
-    }
-    const hash = crypto.createHash('md5');
-    const stream = fs.createReadStream(filePath);
+    const hash = crypto.createHash(hashName);
+    const stream = fs.createReadStream(path);
     stream.on('error', err => reject(err));
     stream.on('data', chunk => hash.update(chunk));
-    stream.on('end', () => {
-      const checksum = hash.digest('hex');
-      checksumRegistry.set(filePath, checksum);
-      resolve(checksum);
-    });
+    stream.on('end', () => resolve(hash.digest('hex')));
   });
 }
 
@@ -61,7 +51,7 @@ function loader(...args) {
   const cache = true;
 
   const toDepDetails = (dep, mapCallback) => {
-    checksumFile(dep)
+    checksumFile('md5', dep)
       .then((md5checksum) => {
         mapCallback(null, {
           path: dep,
@@ -140,7 +130,7 @@ function pitch(remainingRequest, prevRequest, dataInput) {
       return;
     }
     async.each(cacheData.dependencies.concat(cacheData.contextDependencies), (dep, eachCallback) => {
-      checksumFile(dep.path)
+      checksumFile('md5', dep.path)
         .then((md5checksum) => {
           if (md5checksum !== dep.md5checksum) {
             if (options.loglevel === 'all' || options.loglevel === 'misses') {
