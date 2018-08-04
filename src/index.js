@@ -22,7 +22,7 @@ const defaults = {
   cacheKey,
   read,
   write,
-  debug: false,
+  loglevel: 'none',
 };
 
 function checksumFile(hashName, path) {
@@ -133,13 +133,17 @@ function pitch(remainingRequest, prevRequest, dataInput) {
       checksumFile('md5', dep.path)
         .then((md5checksum) => {
           if (md5checksum !== dep.md5checksum) {
-            // eslint-disable-next-line
-            options.debug && console.log(`${dep.path} --- CACHE MISS`);
+            if (options.loglevel === 'all' || options.loglevel === 'misses') {
+              // eslint-disable-next-line
+              console.log(`${dep.path} --- CACHE MISS`);
+            }
             eachCallback(true);
             return;
           }
-          // eslint-disable-next-line
-          options.debug && console.log(`${dep.path} --- CACHE HIT`);
+          if (options.loglevel === 'all' || options.loglevel === 'hits') {
+            // eslint-disable-next-line
+            console.log(`${dep.path} --- CACHE HIT`);
+          }
           eachCallback();
         })
         .catch(err => eachCallback(err));

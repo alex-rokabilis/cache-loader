@@ -16,8 +16,8 @@
     "write": {
       "instanceof": "Function"
     },
-    "debug": {
-      "type": "boolean"
+    "loglevel": {
+      "type": "string"
     }
   },
   "additionalProperties": false
