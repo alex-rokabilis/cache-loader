@@ -25,6 +25,16 @@ const defaults = {
   debug: false,
 };
 
+function checksumFile(hashName, path) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash(hashName);
+    const stream = fs.createReadStream(path);
+    stream.on('error', err => reject(err));
+    stream.on('data', chunk => hash.update(chunk));
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
+}
+
 function loader(...args) {
   const options = Object.assign({}, defaults, getOptions(this));
 
@@ -41,17 +51,14 @@ function loader(...args) {
   const cache = true;
 
   const toDepDetails = (dep, mapCallback) => {
-    fs.readFile(dep, (readErr, contents) => {
-      if (readErr) {
-        mapCallback(readErr);
-        return;
-      }
-      const md5checksum = crypto.createHash('md5').update(contents).digest('hex');
-      mapCallback(null, {
-        path: dep,
-        md5checksum,
-      });
-    });
+    checksumFile('md5', dep)
+      .then((md5checksum) => {
+        mapCallback(null, {
+          path: dep,
+          md5checksum,
+        });
+      })
+      .catch(err => mapCallback(err));
 
     // fs.stat(dep, (err, stats) => {
     //   if (err) {
@@ -123,24 +130,19 @@ function pitch(remainingRequest, prevRequest, dataInput) {
       return;
     }
     async.each(cacheData.dependencies.concat(cacheData.contextDependencies), (dep, eachCallback) => {
-      fs.readFile(dep.path, (readErr, contents) => {
-        if (readErr) {
-          eachCallback(readErr);
-          return;
-        }
-
-        const md5checksum = crypto.createHash('md5').update(contents).digest('hex');
-
-        if (md5checksum !== dep.md5checksum) {
+      checksumFile('md5', dep.path)
+        .then((md5checksum) => {
+          if (md5checksum !== dep.md5checksum) {
+            // eslint-disable-next-line
+            options.debug && console.log(`${dep.path} --- CACHE MISS`);
+            eachCallback(true);
+            return;
+          }
           // eslint-disable-next-line
-          options.debug && console.log(`${dep.path} --- CACHE MISS`);
-          eachCallback(true);
-          return;
-        }
-        // eslint-disable-next-line
-        options.debug && console.log(`${dep.path} --- CACHE HIT`);
-        eachCallback();
-      });
+          options.debug && console.log(`${dep.path} --- CACHE HIT`);
+          eachCallback();
+        })
+        .catch(err => eachCallback(err));
     }, (err) => {
       if (err) {
         data.startTime = Date.now();
